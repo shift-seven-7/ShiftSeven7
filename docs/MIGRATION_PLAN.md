@@ -4,6 +4,38 @@
 
 **Second revision note:** the plan originally kept the old Base44/Vite app (`src/`, `base44/`) in the repo, untouched, until cutover (Phase 5/6 below) — as a safety net for the pre-cutover comparison walk and as reference source while porting pages. That app has since been **removed from this branch** ahead of schedule. It's still recoverable from git history (`main`/`develop` have it, or `git show main:<path>` for a single file) — see `CLAUDE.md`'s "Where the old app went" section. The Phase 5 pre-cutover comparison now has to happen against the *live* Base44-hosted app (base44.com) directly, not a local checkout.
 
+**Status: Phases 0-5 UI/logic are implemented and building/linting clean.** See "Current status" right after this note for exactly what's done, what's verified end-to-end vs. only code-complete, and what still needs a human (credentials, browser testing, Phase 6 cutover). Phase numbers below are kept as originally planned for reference; they no longer reflect two-developer parallelization since one agent implemented all of them sequentially in one session.
+
+## Current status (as of this revision)
+
+**Done and verified end-to-end** (schema pushed, logged in as a real seeded admin, JWT confirmed to carry the `user_role` claim):
+- Full schema + RLS + Auth Hook (§B.2-B.3), pushed to a live Supabase project
+- Auth: login, logout, session refresh via `proxy.ts`, admin-provisioning Server Action
+- All 15 pages from the old app's `ROUTE_ACCESS` map, ported with Hebrew/RTL UI intact: `/`, `/staff`, `/posts`, `/shifts`, `/staffing-requirements`, `/settings`, `/schedule`, `/smart-schedule` (drag-and-drop), `/shift-request`, `/unstaffed-shifts`, `/published-schedule`, `/constraints-report`, `/my-area`, `/requests`, `/manage-requests`
+- `GET /api/reports/weekly-hours` and `GET /api/cron/check-credential-expiries` Route Handlers (ports of the two Base44 functions that weren't Slack notifications)
+- `notifyEmployeeRequest`/`notifySchedulePublished` Server Actions (Slack, via `after()`)
+- Custom 404 page
+
+**Code-complete but not yet exercised** (no credentials configured to test against):
+- Slack notifications (`SLACK_WEBHOOK_URL` not set)
+- Credential-expiry emails via Resend (`RESEND_API_KEY`/`EMAIL_FROM_ADDRESS` not set)
+- The cron route's `CRON_SECRET` gate (not set — route is currently callable without auth if deployed as-is; set this before deploying)
+- File upload to Supabase Storage in `EmployeeRequestForm` (bucket + RLS policies exist from the Phase 0 migration, upload code is written, never actually exercised with a real file)
+
+**Known behavior deviations from the old Base44 app** (each also has an inline code comment where it lives):
+- `ShiftTemplate.facility`: old `"all"` sentinel string → `null` (global template) in the new schema
+- `StaffingRequirement` keyed by `facility_id` (FK) instead of the old `facility_code` (string)
+- Smart-schedule drag-to-assign requires a real matching `Post` to exist (`post_id` is `NOT NULL` here, wasn't enforced in Base44) — shows an error instead of silently creating a postless shift
+- `EmployeeRequest.handled_by` stores the approving admin's auth user UUID, not a display name (the old app showed the manager's name inline next to `manager_comment`; that name lookup was dropped for now — the comment itself still displays)
+
+**Not done — genuinely needs you:**
+- Browser-testing the actual click-through flows (I've verified builds/lint/types and the auth+RLS chain via API calls, but haven't clicked through the UI myself)
+- Provisioning Slack webhook + Resend account, setting the env vars above
+- Writing the Vitest unit tests `docs/LLM_RULES.md` calls for
+- Wiring real CI (`.github/workflows/ci.yml` still needs the Node/Supabase test-project setup from §B.7)
+- Phase 6 (decommission Base44) — hasn't started, shouldn't until the above is done and the app has run clean for a while
+- The data-migration dry run described in Phase 5 below (exporting real Base44 data and importing it) — nothing has been imported yet, the app has only ever seen the one seeded test admin
+
 ## Context
 
 `shift-seven` (product name **GuardSync**/"Secure Shift Flow") was a React SPA (Vite, JavaScript) that depended entirely on the Base44 platform for auth, data storage, and business logic (`base44.entities.*`, `base44.functions.invoke`) — that app has been removed from this branch (see revision note above). The goal is a **pure stack migration** — same features, same UX, same domain model — rebuilt on Next.js + Supabase + Vercel.
