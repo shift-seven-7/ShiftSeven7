@@ -1,5 +1,6 @@
 "use client";
 
+import { signOut } from "@/app/actions/auth";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
 import UserSwitcher from "@/components/UserSwitcher";
 import { useImpersonation } from "@/lib/impersonation-context";
@@ -17,6 +18,7 @@ import {
   FileWarning,
   Inbox,
   LayoutDashboard,
+  LogOut,
   Settings,
   Shield,
   SlidersHorizontal,
@@ -106,13 +108,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <UserSwitcher collapsed={collapsed} />
         </div>
 
-        <div className="p-2 border-t border-border shrink-0">
+        <div className="p-2 border-t border-border shrink-0 flex items-center gap-1">
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="flex items-center justify-center w-full py-2 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            className="flex items-center justify-center flex-1 py-2 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
+          {!collapsed && (
+            <form action={signOut}>
+              <button
+                type="submit"
+                title="התנתק"
+                className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </form>
+          )}
         </div>
       </aside>
 

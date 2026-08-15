@@ -8,22 +8,13 @@
 // have.
 import { createClient } from "@/lib/supabase/client";
 import type { AccessLevel } from "@/lib/routePermissions";
+import type { Database } from "@/lib/supabase/database.types";
 import { useQuery } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "ss_impersonation_staff_id";
 
-export interface StaffRow {
-  id: string;
-  user_id: string | null;
-  full_name: string;
-  employee_id: string;
-  role: string;
-  qualification: string;
-  access_level: AccessLevel;
-  email: string | null;
-  primary_facility: string;
-}
+export type StaffRow = Database["public"]["Tables"]["staff"]["Row"];
 
 interface ImpersonationContextValue {
   staffList: StaffRow[];
@@ -61,7 +52,7 @@ export function ImpersonationProvider({ children }: { children: React.ReactNode 
       const supabase = createClient();
       const { data, error } = await supabase
         .from("staff")
-        .select("id, user_id, full_name, employee_id, role, qualification, access_level, email, primary_facility");
+        .select("*");
       if (error) throw error;
       return data as StaffRow[];
     },

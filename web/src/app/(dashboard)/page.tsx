@@ -1,30 +1,23 @@
-import { signOut } from "@/app/actions/auth";
-import { Button } from "@/components/ui/button";
-import { FacilitiesList } from "@/components/facilities-list";
-import { createClient } from "@/lib/supabase/server";
+"use client";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const claims = data?.claims;
+import Dashboard from "@/components/Dashboard";
+import MyAreaPage from "@/app/(dashboard)/my-area/page";
+import { useImpersonation } from "@/lib/impersonation-context";
 
-  return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-16">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">GuardSync</h1>
-          <p className="text-muted-foreground text-sm">
-            {claims?.email} &middot; role: <code>{String(claims?.user_role ?? "unknown")}</code>
-          </p>
-        </div>
-        <form action={signOut}>
-          <Button type="submit" variant="outline">
-            Sign out
-          </Button>
-        </form>
-      </header>
+export default function Home() {
+  const { effectiveAccessLevel } = useImpersonation();
 
-      <FacilitiesList />
-    </div>
-  );
+  if (effectiveAccessLevel === null) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="w-8 h-8 border-4 border-border border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (effectiveAccessLevel === "no_access") {
+    return <div className="text-center py-16 text-sm text-muted-foreground">אין לך הרשאת גישה למערכת. פנה למנהל המערכת.</div>;
+  }
+
+  return ["admin", "scheduler"].includes(effectiveAccessLevel) ? <Dashboard /> : <MyAreaPage />;
 }
