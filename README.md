@@ -1,40 +1,25 @@
-**Welcome to your Base44 project** 
+# ShiftSeven7 (GuardSync)
 
-**About**
+Shift-scheduling app for security staff (guards, dispatchers, facilities, posts).
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+**Stack:** Next.js (TypeScript, App Router) + Supabase (Postgres, Auth, Storage), deployed on Vercel.
 
-This project contains everything you need to run your app locally.
+The app lives entirely in [`web/`](web/) — see [`web/README.md`](web/README.md) for local setup, and [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md) for the full architecture (schema, RLS/role-based access, background jobs, build phases).
 
-**Edit the code in your local development environment**
+This repo previously hosted a Base44-generated React/Vite frontend; that app and the Base44 platform config have been fully replaced by `web/`.
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+## Quick start
 
-**Prerequisites:** 
-
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
-
-```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
-
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+```bash
+cd web
+npm install
+cp .env.local.example .env.local   # fill in from your Supabase project's Settings > API
+npm run dev
 ```
 
-Run the app: `npm run dev`
+## Docs
 
-**Publish your changes**
-
-Open [Base44.com](http://Base44.com) and click on Publish.
-
-**Docs & Support**
-
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
-# ShiftSeven7
+- [`CLAUDE.md`](CLAUDE.md) — guidance for AI coding agents working in this repo
+- [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md) — schema, RLS/RBAC design, background jobs, build phases
+- [`docs/LLM_RULES.md`](docs/LLM_RULES.md) — rules for LLM-generated changes
+- [`architecture/`](architecture/) — architecture docs and diagrams

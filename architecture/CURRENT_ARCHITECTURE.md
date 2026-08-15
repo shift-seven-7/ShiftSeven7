@@ -1,14 +1,15 @@
-# Current Architecture
+# Historical Architecture (pre-migration)
 
-This file contains the current architecture snapshot and migration notes. Diagrams have been added under `architecture/diagrams/` as draw.io placeholders. Edit the draw.io files with diagrams.net to represent:
+**This document is now historical.** The Base44/Vite app it describes (`src/`, `base44/`) has been removed from this branch — recover it from git history (`main`/`develop`, or `git show main:<path>`) if you need to check exact original behavior, see `CLAUDE.md`'s "Where the old app went". The active target is a Next.js + Supabase app deployed on Vercel — see `../docs/MIGRATION_PLAN.md` for the full technical plan. Kept here as a reference for what the system looked like before the migration.
+
+Diagrams have been added under `architecture/diagrams/` as draw.io placeholders. Edit the draw.io files with diagrams.net to represent:
 
 - System architecture
 - Component diagram
 - Sequence diagrams
 - Use case, class, activity, state, deployment, ERD, DFD, flowcharts, C4, network, package, object diagrams
 
-Migration note: The team is migrating off Base44 to a Next.js + Supabase app deployed on Vercel. See `../docs/MIGRATION_PLAN.md` for the full technical plan.
-# Current Architecture
+# Current Architecture (as of pre-migration)
 
 ## Overview
 
