@@ -22,8 +22,8 @@ The git repo is the only thing both developers and every future Claude Code sess
 1. **`CLAUDE.md`** (repo root) documents the current state — Vite app in `src/` still Base44-backed, new Next.js app in `/web` being built against Supabase — and points to this plan and the architecture docs. Keep it updated as `/web` stops being empty scaffolding.
 2. **This document** (`docs/MIGRATION_PLAN.md`) is the shared source of truth for schema, RLS policies, and phase/ownership breakdown — reference it by path in commits/PRs.
 3. **Claude.ai Project** ("GuardSync Migration") — shared space for design discussion, not implementation. Upload `architecture/ARCHITECTURE_RECOMMENDED.md`, `DOMAIN_MODEL.md`, `docs/LLM_RULES.md`, and this plan; re-upload after major revisions (Projects don't auto-sync with git). If you're on individual Pro accounts rather than Team/Enterprise, each of you creates your own Project pointed at the same files — the repo stays the actual source of truth either way.
-4. **Task tracking**: GitHub Issues, one per page/feature slice from §B.5 below, referenced in PR titles. `docs/LLM_RULES.md` requires small PRs, one feature per branch, a CHANGELOG entry.
-5. **Branch/PR flow**: feature branches per slice into `main`, CI (needs rewriting for Node/TypeScript — see §B.6) as the shared automated check.
+4. **Task tracking**: GitHub Issues, one per page/feature slice from §B.6 below, referenced in PR titles. `docs/LLM_RULES.md` requires small PRs, one feature per branch, a CHANGELOG entry.
+5. **Branch/PR flow**: `develop` is the integration branch off `main`; `feature/migration` (branched from `develop`) is where this migration's work happens. Once the migration is far enough along to split across the two devs independently, cut further `feature/*` branches from `develop` per slice and PR back into `develop`; CI (needs rewriting for Node/TypeScript — see §B.7) is the shared automated check.
 
 ---
 
@@ -36,17 +36,17 @@ The git repo is the only thing both developers and every future Claude Code sess
 - **`src/`** (existing Vite app) stays untouched and buildable until cutover — nothing here changes during the migration.
 - No Docker, no `docker-compose.yml` — Next.js runs locally via `npm run dev` in `/web`, deploys to Vercel; Supabase is a hosted Cloud project, no local Postgres container.
 
-### B.2 Supabase project & schema
+### B.2 Database schema & Storage buckets
+
+Supabase's two data pillars this app leans on: **Database** (Postgres, with the schema below) and **Storage** (file uploads, see the bucket definition at the end of this section). Auth's role-based access to both is covered together in §B.3, since it's driven by the same mechanism.
 
 One hosted Supabase Cloud project for dev (name it `guardsync-dev` or similar), created via the Supabase dashboard; migrations authored as SQL files under `web/supabase/migrations/` and applied with `supabase db push` (linking the CLI to the hosted project — this does **not** require Docker; only `supabase start`, the local full-stack emulator, does, and we're not using that for now). Consider a separate Supabase project for staging/prod when you get to Phase 5 cutover, rather than reusing the dev project.
 
-`auth.users` (Supabase-managed) is the login identity table — no custom `users` table needed. `staff.user_id` links an HR roster row to a login identity, one-directional (no circular FK issue, unlike the earlier FastAPI design). `staff.access_level` (`admin`/`scheduler`/`employee`/`no_access`) is the **single** authorization field driving RLS — this replaces the earlier plan's two-tier `users.role`/`staff.access_level` split, which existed only because Base44 modeled `User` and `Staff` as separate entities; with RLS as the real enforcement point, one field is simpler and sufficient.
+`auth.users` (Supabase-managed) is the login identity table — no custom `users` table needed. `staff.user_id` links an HR roster row to a login identity, one-directional (no circular FK issue, unlike the earlier FastAPI design). `staff.access_level` is the **single** authorization field — this replaces the earlier plan's two-tier `users.role`/`staff.access_level` split, which existed only because Base44 modeled `User` and `Staff` as separate entities. It's typed as a Postgres enum (`app_role`, defined below) rather than `text` + `check`, matching Supabase's own role-based-access convention, and it's what gets projected into the JWT as a custom claim in §B.3.
 
 ```sql
--- helper used throughout RLS policies
-create function public.current_access_level() returns text as $$
-  select access_level from public.staff where user_id = auth.uid()
-$$ language sql stable security definer;
+-- enum backing staff.access_level, also the type of the JWT custom claim (§B.3)
+create type public.app_role as enum ('admin', 'scheduler', 'employee', 'no_access');
 
 facilities(
   id uuid primary key default gen_random_uuid(),
@@ -65,7 +65,7 @@ staff(
   primary_facility uuid not null references facilities(id),
   phone text, email text,
   status text not null default 'active' check (status in ('active','on_leave','inactive')),
-  access_level text not null default 'employee' check (access_level in ('admin','scheduler','employee','no_access')),
+  access_level public.app_role not null default 'employee',
   weapon_license_expiry date, weapon_refresh_expiry date, medical_check_expiry date,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
   created_by uuid references auth.users(id)
@@ -171,25 +171,88 @@ system_config(
 
 `applicable_roles text[]` stays a native Postgres array (always read whole, filtered with `= ANY(...)`). `gen_random_uuid()` (pgcrypto, enabled by default in Supabase) replaces the earlier plan's client-side UUID generation.
 
-### B.3 Row Level Security
+**Storage** — one bucket, created in the same migration:
 
-Enable RLS on every table above. Pattern:
+```sql
+insert into storage.buckets (id, name, public)
+values ('employee-request-attachments', 'employee-request-attachments', false);
+```
 
-- **Reference data** (`facilities`, `posts`, `shift_templates`, `staffing_requirements`, `system_config`): `SELECT` for any authenticated user with `current_access_level() <> 'no_access'`; `INSERT`/`UPDATE`/`DELETE` restricted to `current_access_level() = 'admin'`.
+Access policies for this bucket are defined in §B.3 alongside the table RLS policies, using the same role claim.
+
+### B.3 Role-based access control (RLS + Supabase custom claims)
+
+Supabase's recommended RBAC pattern, applied uniformly to both the Database and Storage: project `staff.access_level` into the JWT as a custom claim at token-issuance time (a **Supabase Auth Hook**), so every RLS policy — on tables and on `storage.objects` alike — reads the role straight off `auth.jwt()` with no per-check subquery.
+
+```sql
+-- Auth Hook: "Customize Access Token" — must also be wired up in the Supabase
+-- dashboard under Authentication > Hooks, pointing at this function. That
+-- dashboard step is manual; it isn't something a SQL migration can express.
+create or replace function public.custom_access_token_hook(event jsonb)
+returns jsonb
+language plpgsql
+stable
+as $$
+declare
+  claims jsonb;
+  role_for_user public.app_role;
+begin
+  select access_level into role_for_user
+  from public.staff
+  where user_id = (event ->> 'user_id')::uuid;
+
+  claims := coalesce(event -> 'claims', '{}'::jsonb);
+  claims := jsonb_set(claims, '{user_role}', to_jsonb(coalesce(role_for_user, 'no_access'::public.app_role)));
+
+  return jsonb_set(event, '{claims}', claims);
+end;
+$$;
+
+grant usage on schema public to supabase_auth_admin;
+grant execute on function public.custom_access_token_hook to supabase_auth_admin;
+revoke execute on function public.custom_access_token_hook from authenticated, anon, public;
+```
+
+RLS policies then read `(auth.jwt() ->> 'user_role')` directly:
+
+- **Reference data** (`facilities`, `posts`, `shift_templates`, `staffing_requirements`, `system_config`): `SELECT` for any authenticated user where `(auth.jwt() ->> 'user_role') <> 'no_access'`; `INSERT`/`UPDATE`/`DELETE` restricted to `(auth.jwt() ->> 'user_role') = 'admin'`.
 - **`staff`**: `SELECT` for `admin`/`scheduler` (all rows) or `user_id = auth.uid()` (own row); write restricted to `admin`.
 - **`shift_assignments`**: `SELECT` for `admin`/`scheduler` (all rows) or `staff_id in (select id from staff where user_id = auth.uid()) and is_published = true` (employee's own published shifts only, mirrors `ROUTE_ACCESS`'s published-schedule-only visibility for employees); write restricted to `admin`/`scheduler`.
 - **`shift_requests`** / **`employee_requests`**: `SELECT`/`INSERT` own rows (`staff_id` matches the caller's staff record) for any role with a staff record; `admin`/`scheduler` can additionally read/update all rows (review/approval flow).
 - **`staff_credential_notification_state`**: no policies for authenticated roles (default-deny) — only ever touched by the cron Route Handler using the Supabase **service-role key**, which bypasses RLS entirely.
+- **`storage.objects`** (the `employee-request-attachments` bucket): upload restricted to the caller's own folder; read allowed for the caller's own folder or `admin`/`scheduler`:
 
-No custom Postgres RPC functions are needed for this app's scale — bulk operations (publish a week's assignments, submit draft requests, cancel conflicting shifts) go through the Supabase JS client's `.update().in('id', ids)` pattern from a Server Action, which is a single atomic `UPDATE ... WHERE id = ANY(...)` statement already. This is simpler than the earlier FastAPI plan's dedicated bulk endpoints and matches the "minimize new abstraction, port the existing patterns" approach.
+  ```sql
+  create policy "users upload own attachments"
+    on storage.objects for insert
+    with check (
+      bucket_id = 'employee-request-attachments'
+      and (storage.foldername(name))[1] = auth.uid()::text
+    );
 
-**Optional later optimization**: Supabase Auth Hooks can inject `access_level` into the JWT as a custom claim at token-issuance time, so RLS policies read `auth.jwt()` instead of running `current_access_level()`'s subquery on every check. Skip this for Phase 0/1 — the function-based approach is simpler to set up and fine at this app's read volume; revisit only if RLS-check latency becomes visible.
+  create policy "own or admin/scheduler read attachments"
+    on storage.objects for select
+    using (
+      bucket_id = 'employee-request-attachments'
+      and (
+        (storage.foldername(name))[1] = auth.uid()::text
+        or (auth.jwt() ->> 'user_role') in ('admin', 'scheduler')
+      )
+    );
+  ```
+
+  Files are keyed `{user_id}/{filename}` on upload from the client, which is what `storage.foldername(name)` matches against.
+
+No custom Postgres RPC functions are needed for this app's scale beyond the auth hook above — bulk operations (publish a week's assignments, submit draft requests, cancel conflicting shifts) go through the Supabase JS client's `.update().in('id', ids)` pattern from a Server Action, a single atomic `UPDATE ... WHERE id = ANY(...)` statement already.
+
+**Claim staleness**: a role change made by an admin only reaches the affected user's JWT at their next token refresh (Supabase access tokens are short-lived, ~1hr, refreshed automatically in the background) or next login — not instantly. Acceptable for this app (permission changes aren't emergency-revocations); if instant effect is ever needed for a specific action, call `supabase.auth.refreshSession()` right after the change, but don't build that in until it's actually asked for.
 
 ### B.4 Auth
 
 - Supabase Auth (email/password), wired into Next.js via `@supabase/ssr` (cookie-based sessions, works across Server Components/Route Handlers/`middleware.ts`).
 - **Admin-only provisioning**, matching the closed-HR-system model: a Server Action running server-side (using the Supabase **service-role key**, never sent to the client) calls `supabase.auth.admin.createUser()`, then inserts/links the corresponding `staff` row (`user_id` = the new auth user's id). No public self-signup.
-- `middleware.ts` refreshes the session cookie on every request and can redirect unauthenticated users; per-route UI gating still mirrors `ROUTE_ACCESS` (`src/lib/routePermissions.js`) ported to the new app, but the **real** enforcement is RLS at the database layer (§B.3) — UI gating is for user experience, not security.
+- `middleware.ts` refreshes the session cookie on every request and can redirect unauthenticated users; per-route UI gating still mirrors `ROUTE_ACCESS` (`src/lib/routePermissions.js`) ported to the new app, reading `user_role` off the session's JWT claims rather than a separate query — but the **real** enforcement is RLS (§B.3), UI gating is for user experience, not security.
+- Registering the Auth Hook (§B.3) is a **manual, one-time dashboard step** per Supabase project (dev, staging, prod each need it done separately) — note this explicitly in the Phase 0 checklist so it isn't missed when a new environment is spun up.
 
 ### B.5 Background jobs & notifications
 
@@ -197,11 +260,11 @@ No custom Postgres RPC functions are needed for this app's scale — bulk operat
 - **`notifyEmployeeRequest`** / **`notifySchedulePublished`** — called from the relevant Server Action right after the DB write commits. Use `after()` (from `next/server`) to run the Slack POST after the response is returned to the user, so a slow/down Slack never adds latency to (or blocks) the user-facing action.
 - **Slack**: keep it to a single incoming webhook (`lib/slack.ts`, reads `SLACK_WEBHOOK_URL`, posts to the channel the webhook is bound to) — same reasoning as the earlier plan: this app only ever posts to one configured channel, so Base44's OAuth bot connector (multi-scope, multi-channel) has no functional advantage here.
 - **Email** (credential expiry reminders): recommend **Resend** — TypeScript-first SDK, minimal setup, fits the Vercel/Next.js ecosystem well. Needs an account + verified sending domain + API key (`RESEND_API_KEY`) — a Phase 0 provisioning dependency, not a code blocker.
-- **File uploads** (`EmployeeRequest` attachments, replacing Base44's `integrations.Core.UploadFile`): a Supabase Storage bucket (`employee-request-attachments`), with a Storage policy scoping each user to their own folder (`{user_id}/{filename}`) for upload, and read access matching the same role rules as `employee_requests` RLS.
+- **File uploads** (`EmployeeRequest` attachments, replacing Base44's `integrations.Core.UploadFile`): the `employee-request-attachments` Storage bucket and its policies are defined in §B.2/§B.3 — this phase is just the `EmployeeRequestForm` component port to call `supabase.storage.from(...).upload(...)`.
 
 ### B.6 Build order / phases (big-bang: build the full app, cut over once)
 
-**Phase 0 — foundations (~day 1, shared):** create the Supabase Cloud dev project; scaffold `/web` (`create-next-app`, TypeScript, App Router, Tailwind); write the full schema + RLS policies as one Supabase migration (one dev writes, the other reviews); regenerate shadcn/ui components into `web/components/ui/`; set up `@supabase/ssr`/`@supabase/supabase-js` and env vars; start Resend account provisioning in parallel.
+**Phase 0 — foundations (~day 1, shared):** create the Supabase Cloud dev project; scaffold `/web` (`create-next-app`, TypeScript, App Router, Tailwind); write the full schema + storage bucket + RLS policies + the `custom_access_token_hook` function as one Supabase migration (one dev writes, the other reviews); **register the Auth Hook in the Supabase dashboard** (Authentication > Hooks — manual step, not part of the SQL migration); regenerate shadcn/ui components into `web/components/ui/`; set up `@supabase/ssr`/`@supabase/supabase-js` and env vars; start Resend account provisioning in parallel.
 
 **Phase 1 — auth + reference data (parallel):** Dev B → Supabase Auth wiring (`@supabase/ssr` client, `middleware.ts`, login/logout pages, admin user-provisioning Server Action) — Supabase Auth is managed, so unlike a custom JWT service there's no long lead time blocking Dev A; seed a test admin user directly via the Supabase dashboard/CLI to unblock parallel work immediately. Dev A → `facilities` + `posts` pages/components ported into `/web`, establishing the React-Query-+-Supabase-client pattern the rest of the app copies.
 
@@ -228,7 +291,8 @@ No custom Postgres RPC functions are needed for this app's scale — bulk operat
 
 1. Create the Supabase Cloud dev project.
 2. Scaffold `/web` with `create-next-app` (TypeScript, App Router, Tailwind).
-3. Write the Phase 0 schema + RLS migration (§B.2, §B.3) and apply it via `supabase db push`.
-4. Regenerate shadcn/ui components into `web/components/ui/`.
-5. Start Resend account provisioning (not code-blocking).
-6. Create GitHub issues for Phase 0/Phase 1 work items.
+3. Write the Phase 0 schema + storage bucket + RLS + auth-hook migration (§B.2, §B.3) and apply it via `supabase db push`.
+4. Register the `custom_access_token_hook` Auth Hook in the Supabase dashboard (manual step).
+5. Regenerate shadcn/ui components into `web/components/ui/`.
+6. Start Resend account provisioning (not code-blocking).
+7. Create GitHub issues for Phase 0/Phase 1 work items.
