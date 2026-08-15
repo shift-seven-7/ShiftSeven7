@@ -1,0 +1,30 @@
+{
+  "name": "Facility",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Facility name"
+    },
+    "code": {
+      "type": "string",
+      "description": "Short code (e.g., KR, TL)"
+    },
+    "address": {
+      "type": "string",
+      "description": "Physical address"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "name",
+    "code"
+  ]
+}

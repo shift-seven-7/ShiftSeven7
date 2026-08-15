@@ -1,0 +1,89 @@
+{
+  "name": "Staff",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "description": "Full name of the staff member"
+    },
+    "employee_id": {
+      "type": "string",
+      "description": "Unique employee identifier"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "guard",
+        "dispatcher"
+      ],
+      "description": "Primary role"
+    },
+    "qualification": {
+      "type": "string",
+      "enum": [
+        "none",
+        "shift_supervisor",
+        "lead_dispatcher"
+      ],
+      "default": "none",
+      "description": "Special qualification tag"
+    },
+    "primary_facility": {
+      "type": "string",
+      "description": "ID of the primary facility"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone number"
+    },
+    "email": {
+      "type": "string",
+      "description": "Contact email"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "on_leave",
+        "inactive"
+      ],
+      "default": "active"
+    },
+    "access_level": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "scheduler",
+        "employee",
+        "no_access"
+      ],
+      "default": "employee",
+      "description": "App access permission level: admin = full system access, scheduler = schedule management, employee = view published schedule + submit requests, no_access = record only"
+    },
+    "weapon_license_expiry": {
+      "type": "string",
+      "format": "date",
+      "description": "Weapon license expiry date (YYYY-MM-DD)"
+    },
+    "weapon_refresh_expiry": {
+      "type": "string",
+      "format": "date",
+      "description": "Weapon refresh/renewal expiry date (YYYY-MM-DD)"
+    },
+    "medical_check_expiry": {
+      "type": "string",
+      "format": "date",
+      "description": "Medical clearance expiry date (YYYY-MM-DD)"
+    },
+    "expiry_notified": {
+      "type": "string",
+      "description": "Internal tracking of notified credential states (e.g. 'weapon_license_expiry:urgent,medical_check_expiry:expired')"
+    }
+  },
+  "required": [
+    "full_name",
+    "employee_id",
+    "role",
+    "primary_facility"
+  ]
+}

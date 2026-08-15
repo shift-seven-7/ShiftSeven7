@@ -1,0 +1,48 @@
+{
+  "name": "StaffingRequirement",
+  "type": "object",
+  "properties": {
+    "facility_code": {
+      "type": "string",
+      "description": "Facility code this requirement applies to (e.g. KR, TL)"
+    },
+    "day_group": {
+      "type": "string",
+      "enum": [
+        "weekday",
+        "friday",
+        "saturday"
+      ],
+      "description": "Day group: weekday = Sun-Thu, friday, saturday"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "morning",
+        "afternoon",
+        "night"
+      ],
+      "description": "Shift category"
+    },
+    "supervisor": {
+      "type": "number",
+      "default": 0,
+      "description": "Required shift supervisors (\u05d0\u05d7\u05de\"\u05e9)"
+    },
+    "guard": {
+      "type": "number",
+      "default": 0,
+      "description": "Required guards"
+    },
+    "dispatcher": {
+      "type": "number",
+      "default": 0,
+      "description": "Required dispatchers"
+    }
+  },
+  "required": [
+    "facility_code",
+    "day_group",
+    "category"
+  ]
+}

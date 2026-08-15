@@ -1,0 +1,32 @@
+{
+  "name": "SystemConfig",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Configuration key"
+    },
+    "value": {
+      "type": "string",
+      "description": "Configuration value"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "shift_limits",
+        "staffing_rules",
+        "emergency"
+      ],
+      "description": "Config category"
+    }
+  },
+  "required": [
+    "key",
+    "value",
+    "category"
+  ]
+}
