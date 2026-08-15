@@ -30,7 +30,14 @@ export async function proxy(request: NextRequest) {
   // back to cookies via setAll above. Do not remove or skip it, and don't
   // add logic between here and the response - Supabase's docs warn that a
   // refresh completing after the response is committed gets lost.
-  await supabase.auth.getClaims();
+  const { data } = await supabase.auth.getClaims();
+
+  const isPublicPath = request.nextUrl.pathname.startsWith("/login");
+  if (!data?.claims && !isPublicPath) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
 
   return response;
 }

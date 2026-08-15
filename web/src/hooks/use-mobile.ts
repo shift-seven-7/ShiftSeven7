@@ -11,6 +11,11 @@ export function useIsMobile() {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
     mql.addEventListener("change", onChange)
+    // shadcn/ui-generated code (unmodified pattern) - the initial sync
+    // setState is how it reads the real value on mount instead of the
+    // useState default; flagged by a newer eslint-plugin-react-hooks rule
+    // than this component predates.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     return () => mql.removeEventListener("change", onChange)
   }, [])

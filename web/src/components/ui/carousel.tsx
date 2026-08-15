@@ -95,6 +95,11 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return
+    // shadcn/ui-generated code (unmodified pattern) - syncs current/canScroll
+    // state from the embla API on mount, before the reInit/select listeners
+    // below take over; flagged by a newer eslint-plugin-react-hooks rule
+    // than this component predates.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     onSelect(api)
     api.on("reInit", onSelect)
     api.on("select", onSelect)
