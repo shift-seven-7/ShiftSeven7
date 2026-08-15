@@ -31,7 +31,7 @@ The git repo is the only thing both developers and every future Claude Code sess
 
 ### B.1 App structure
 
-- **`/web`** — new Next.js app (App Router, TypeScript strict), its own `package.json`/`node_modules`/`tsconfig.json`, not an npm workspace with the existing root app. Scaffold with `create-next-app` (TypeScript, App Router, Tailwind — matches the existing app's Tailwind + shadcn/ui setup).
+- **`/web`** — new Next.js app (App Router, TypeScript strict), its own `package.json`/`node_modules`/`tsconfig.json`, not an npm workspace with the existing root app. Scaffolded with `create-next-app` (TypeScript, App Router, Tailwind — matches the existing app's Tailwind + shadcn/ui setup), which defaults to a `web/src/` layout (`web/src/app`, `web/src/components`, `web/src/lib`) — later references to `web/app/...` or `web/components/...` in this doc mean `web/src/app/...` / `web/src/components/...`. **Next.js 16**, installed via `create-next-app@latest`, renamed `middleware.ts` to `proxy.ts` (function `proxy`, not `middleware`) — this plan uses the new name throughout; check `web/node_modules/next/dist/docs/` before writing App Router code, since v16 has other breaking changes from what any given session might expect.
 - **UI primitives**: regenerate shadcn/ui components fresh into `web/components/ui/` via the shadcn CLI (`npx shadcn init`, `npx shadcn add <component>`) rather than hand-porting the `.jsx` files from `src/components/ui/` — guarantees Next.js/TypeScript-correct output, and the current `components.json` config (style "new-york", neutral base color) carries over directly.
 - **`src/`** (existing Vite app) stays untouched and buildable until cutover — nothing here changes during the migration.
 - No Docker, no `docker-compose.yml` — Next.js runs locally via `npm run dev` in `/web`, deploys to Vercel; Supabase is a hosted Cloud project, no local Postgres container.
@@ -249,9 +249,9 @@ No custom Postgres RPC functions are needed for this app's scale beyond the auth
 
 ### B.4 Auth
 
-- Supabase Auth (email/password), wired into Next.js via `@supabase/ssr` (cookie-based sessions, works across Server Components/Route Handlers/`middleware.ts`).
+- Supabase Auth (email/password), wired into Next.js via `@supabase/ssr` (cookie-based sessions, works across Server Components/Route Handlers/`proxy.ts`).
 - **Admin-only provisioning**, matching the closed-HR-system model: a Server Action running server-side (using the Supabase **service-role key**, never sent to the client) calls `supabase.auth.admin.createUser()`, then inserts/links the corresponding `staff` row (`user_id` = the new auth user's id). No public self-signup.
-- `middleware.ts` refreshes the session cookie on every request and can redirect unauthenticated users; per-route UI gating still mirrors `ROUTE_ACCESS` (`src/lib/routePermissions.js`) ported to the new app, reading `user_role` off the session's JWT claims rather than a separate query — but the **real** enforcement is RLS (§B.3), UI gating is for user experience, not security.
+- `proxy.ts` refreshes the session cookie on every request and can redirect unauthenticated users; per-route UI gating still mirrors `ROUTE_ACCESS` (`src/lib/routePermissions.js`) ported to the new app, reading `user_role` off the session's JWT claims rather than a separate query — but the **real** enforcement is RLS (§B.3), UI gating is for user experience, not security.
 - Registering the Auth Hook (§B.3) is a **manual, one-time dashboard step** per Supabase project (dev, staging, prod each need it done separately) — note this explicitly in the Phase 0 checklist so it isn't missed when a new environment is spun up.
 
 ### B.5 Background jobs & notifications
@@ -266,7 +266,7 @@ No custom Postgres RPC functions are needed for this app's scale beyond the auth
 
 **Phase 0 — foundations (~day 1, shared):** create the Supabase Cloud dev project; scaffold `/web` (`create-next-app`, TypeScript, App Router, Tailwind); write the full schema + storage bucket + RLS policies + the `custom_access_token_hook` function as one Supabase migration (one dev writes, the other reviews); **register the Auth Hook in the Supabase dashboard** (Authentication > Hooks — manual step, not part of the SQL migration); regenerate shadcn/ui components into `web/components/ui/`; set up `@supabase/ssr`/`@supabase/supabase-js` and env vars; start Resend account provisioning in parallel.
 
-**Phase 1 — auth + reference data (parallel):** Dev B → Supabase Auth wiring (`@supabase/ssr` client, `middleware.ts`, login/logout pages, admin user-provisioning Server Action) — Supabase Auth is managed, so unlike a custom JWT service there's no long lead time blocking Dev A; seed a test admin user directly via the Supabase dashboard/CLI to unblock parallel work immediately. Dev A → `facilities` + `posts` pages/components ported into `/web`, establishing the React-Query-+-Supabase-client pattern the rest of the app copies.
+**Phase 1 — auth + reference data (parallel):** Dev B → Supabase Auth wiring (`@supabase/ssr` client, `proxy.ts`, login/logout pages, admin user-provisioning Server Action) — Supabase Auth is managed, so unlike a custom JWT service there's no long lead time blocking Dev A; seed a test admin user directly via the Supabase dashboard/CLI to unblock parallel work immediately. Dev A → `facilities` + `posts` pages/components ported into `/web`, establishing the React-Query-+-Supabase-client pattern the rest of the app copies.
 
 **Phase 2 — core entity pages (parallel, bulk of the work):** Dev A → `staff`, `shift-templates`, `staffing-requirements`, `system-config` pages/components. Dev B → `shift-assignments` (schedule board, smart-schedule) and `shift-requests` pages/components. Same dependency note as before: `shift_assignments` pages need `staff`/`posts`/`shift_templates`/`facilities` data to be meaningfully testable, so Dev B can build against seed data while waiting on Dev A's pieces to land.
 
