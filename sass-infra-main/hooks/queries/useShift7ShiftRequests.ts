@@ -26,6 +26,22 @@ export function useShift7ShiftRequests(weekStart: string) {
   });
 }
 
+/** Admin/scheduler cross-reference view — every submitted request for the week. */
+export function useAllShift7ShiftRequests(weekStart: string, facilityId?: string) {
+  return useQuery({
+    queryKey: queryKeys.shift7ShiftRequests.all_(weekStart, facilityId),
+    queryFn: () => {
+      const params = new URLSearchParams({ week_start: weekStart, scope: 'all' });
+      if (facilityId) params.set('facilityId', facilityId);
+      return request<{ shiftRequests: ShiftRequestRow[] }>(
+        `/api/shift7/shift-requests?${params.toString()}`
+      );
+    },
+    select: (data) => data.shiftRequests,
+    enabled: !!weekStart,
+  });
+}
+
 export interface SelectShiftRequestInput {
   week_start: string;
   date: string;

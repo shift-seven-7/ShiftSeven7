@@ -28,6 +28,25 @@ export async function GET(request: NextRequest) {
   const weekStart = request.nextUrl.searchParams.get('week_start');
   if (!weekStart) return badRequest('week_start נדרש');
 
+  // scope=all: admin/scheduler cross-reference view (constraints-report) —
+  // every submitted request for the week, not just the caller's own.
+  if (request.nextUrl.searchParams.get('scope') === 'all') {
+    const { data: isSchedulerOrAdmin } = await supabase.rpc('is_shift7_scheduler_or_admin');
+    if (isSchedulerOrAdmin !== true) {
+      return forbidden('רק מנהל או משבץ Shift7 יכולים לצפות בכל הבקשות');
+    }
+    const facilityId = request.nextUrl.searchParams.get('facilityId');
+    let query = supabase.from('shift_requests').select('*').eq('week_start', weekStart);
+    if (facilityId) query = query.eq('facility_id', facilityId);
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('[api/shift7/shift-requests] list all failed:', error.message);
+      return serverError('טעינת הבקשות נכשלה');
+    }
+    return NextResponse.json({ shiftRequests: data });
+  }
+
   const me = await myStaffRow(supabase, auth!.userId);
   if (!me) return NextResponse.json({ shiftRequests: [] });
 

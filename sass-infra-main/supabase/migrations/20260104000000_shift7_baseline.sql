@@ -19,41 +19,6 @@
 -- staff.access_level, checked here and in app/api/shift7/* route handlers.
 -- =============================================================================
 
--- ─── staff role helper ───────────────────────────────────────────────────────
---
--- SECURITY DEFINER with a pinned search_path: without it, reading
--- public.staff from inside a policy ON public.staff recurses (same reasoning
--- as current_app_role() in the baseline).
-
-CREATE OR REPLACE FUNCTION public.current_shift7_role()
-RETURNS TEXT
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT access_level
-  FROM public.staff
-  WHERE user_id = auth.uid()
-    AND status = 'active'
-$$;
-
-CREATE OR REPLACE FUNCTION public.is_shift7_admin()
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-AS $$
-  SELECT public.current_shift7_role() = 'admin'
-$$;
-
-CREATE OR REPLACE FUNCTION public.is_shift7_scheduler_or_admin()
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-AS $$
-  SELECT public.current_shift7_role() IN ('admin', 'scheduler')
-$$;
-
 -- ─── tables ───────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS public.facilities (
@@ -275,6 +240,46 @@ CREATE TRIGGER trg_shift7_system_config_updated_at
   BEFORE UPDATE ON public.system_config
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
+-- ─── staff role helper ───────────────────────────────────────────────────────
+--
+-- Must come after the tables: a LANGUAGE sql function's body is parsed and
+-- validated against the catalog at CREATE time (unlike plpgsql, which defers
+-- name resolution to runtime) — referencing public.staff before it exists
+-- fails the migration.
+--
+-- SECURITY DEFINER with a pinned search_path: without it, reading
+-- public.staff from inside a policy ON public.staff recurses (same reasoning
+-- as current_app_role() in the baseline).
+
+CREATE OR REPLACE FUNCTION public.current_shift7_role()
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT access_level
+  FROM public.staff
+  WHERE user_id = auth.uid()
+    AND status = 'active'
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_shift7_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT public.current_shift7_role() = 'admin'
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_shift7_scheduler_or_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT public.current_shift7_role() IN ('admin', 'scheduler')
+$$;
+
 -- ─── row level security ─────────────────────────────────────────────────────
 
 ALTER TABLE public.facilities ENABLE ROW LEVEL SECURITY;
@@ -353,6 +358,18 @@ CREATE POLICY "shift7 admins write staff" ON public.staff
   FOR ALL TO authenticated
   USING (public.is_shift7_admin())
   WITH CHECK (public.is_shift7_admin());
+
+-- Schedulers get the same day-to-day staff management as admins (add/edit/
+-- remove guards and dispatchers) but never touch an 'admin'-level row: not
+-- the existing row (USING — can't edit/delete an admin's row) and not the
+-- new row (WITH CHECK — can't create one, or promote anyone into one).
+-- Privilege escalation must fail here even if a caller bypasses the
+-- app/api/shift7/staff route entirely.
+DROP POLICY IF EXISTS "shift7 schedulers write non-admin staff" ON public.staff;
+CREATE POLICY "shift7 schedulers write non-admin staff" ON public.staff
+  FOR ALL TO authenticated
+  USING (public.current_shift7_role() = 'scheduler' AND access_level <> 'admin')
+  WITH CHECK (public.current_shift7_role() = 'scheduler' AND access_level <> 'admin');
 
 -- Bootstrap: is_shift7_admin() requires an existing staff row, so without
 -- this, nobody could ever create the first one for a new tenant. A caller

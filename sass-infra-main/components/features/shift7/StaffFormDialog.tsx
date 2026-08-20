@@ -31,6 +31,8 @@ interface StaffFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   facilities: FacilityRow[];
+  /** Only a Shift7 admin may grant admin access — see the `roles-permissions` skill. */
+  canGrantAdmin: boolean;
 }
 
 interface FormState {
@@ -82,7 +84,13 @@ const STATUS_OPTIONS = [
  * InviteUserDialog split for the simpler user form) would just be repetition.
  * See the `form-dialogs` skill.
  */
-export function StaffFormDialog({ staff, open, onOpenChange, facilities }: StaffFormDialogProps) {
+export function StaffFormDialog({
+  staff,
+  open,
+  onOpenChange,
+  facilities,
+  canGrantAdmin,
+}: StaffFormDialogProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const create = useCreateShift7Staff();
@@ -124,6 +132,13 @@ export function StaffFormDialog({ staff, open, onOpenChange, facilities }: Staff
           { value: 'none', label: 'אין' },
           { value: 'lead_dispatcher', label: 'אחראית מוקד' },
         ];
+
+  // A scheduler must never see 'admin' as a selectable access level — not
+  // even for a row that already has it, since the server rejects that write
+  // outright and this option would just be a dead end.
+  const accessLevelOptions = canGrantAdmin
+    ? ACCESS_LEVEL_OPTIONS
+    : ACCESS_LEVEL_OPTIONS.filter((o) => o.value !== 'admin');
 
   const errors = {
     full_name: touched.full_name && !form.full_name.trim(),
@@ -286,7 +301,7 @@ export function StaffFormDialog({ staff, open, onOpenChange, facilities }: Staff
               <Segmented
                 value={form.access_level}
                 onChange={(v) => setForm({ ...form, access_level: v as Shift7AccessLevel })}
-                options={ACCESS_LEVEL_OPTIONS}
+                options={accessLevelOptions}
                 ariaLabel="הרשאות גישה"
               />
             </FormField>

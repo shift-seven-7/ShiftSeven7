@@ -101,6 +101,13 @@ export const queryKeys = {
   shift7ShiftRequests: {
     all: ['shift7', 'shift-requests'] as const,
     mine: (weekStart?: string) => [...queryKeys.shift7ShiftRequests.all, 'mine', weekStart ?? ''] as const,
+    all_: (weekStart: string, facilityId?: string) =>
+      [...queryKeys.shift7ShiftRequests.all, 'all', weekStart, facilityId ?? ''] as const,
+  },
+  shift7ShiftAssignments: {
+    all: ['shift7', 'shift-assignments'] as const,
+    range: (from: string, to: string, facilityId?: string, staffId?: string) =>
+      [...queryKeys.shift7ShiftAssignments.all, 'range', from, to, facilityId ?? '', staffId ?? ''] as const,
   },
   shift7EmployeeRequests: {
     all: ['shift7', 'employee-requests'] as const,

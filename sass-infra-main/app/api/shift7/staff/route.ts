@@ -16,9 +16,12 @@ import type { StaffRow } from '@/types/database.types';
 type StaffInsert = Pick<StaffRow, 'full_name' | 'role' | 'primary_facility'> &
   Partial<Omit<StaffRow, 'id' | 'created_at' | 'updated_at' | 'created_by'>>;
 
-async function isShift7Admin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
-  const { data } = await supabase.rpc('is_shift7_admin');
-  return data === true;
+/** 'admin' | 'scheduler' | 'employee' | 'no_access' | null (no active staff row). */
+async function getShift7Role(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<string | null> {
+  const { data } = await supabase.rpc('current_shift7_role');
+  return data;
 }
 
 export async function GET(request: NextRequest) {
@@ -51,7 +54,10 @@ export async function POST(request: NextRequest) {
 
   const denied = requireApproved(auth);
   if (denied) return denied;
-  if (!(await isShift7Admin(supabase))) return forbidden('רק מנהל Shift7 יכול להוסיף אנשי צוות');
+  const shift7Role = await getShift7Role(supabase);
+  if (shift7Role !== 'admin' && shift7Role !== 'scheduler') {
+    return forbidden('רק מנהל או משבץ Shift7 יכולים להוסיף אנשי צוות');
+  }
 
   let body: StaffInsert;
   try {
@@ -62,6 +68,14 @@ export async function POST(request: NextRequest) {
 
   if (!body.full_name?.trim() || !body.role || !body.primary_facility) {
     return badRequest('שם מלא, תפקיד ומתקן ראשי הם שדות חובה');
+  }
+
+  // Privilege escalation guard: a scheduler may manage staff day-to-day but
+  // must never be able to grant admin access — RLS's WITH CHECK on the
+  // scheduler policy would reject this insert anyway, but checking here
+  // gives a clear Hebrew error instead of a bare insert failure.
+  if (shift7Role === 'scheduler' && body.access_level === 'admin') {
+    return forbidden('משבץ אינו יכול להעניק הרשאת מנהל מערכת');
   }
 
   // Auto-assign the next free numeric employee_id when the caller leaves it

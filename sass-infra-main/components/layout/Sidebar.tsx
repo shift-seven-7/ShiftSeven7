@@ -74,6 +74,37 @@ function getNavItems(): NavItem[] {
   ];
 }
 
+/**
+ * Filters getNavItems() down to what `role` may see, plus whether that
+ * amounts to nothing more than the single module the user is already inside
+ * (e.g. Shift7's scheduler/employee access levels, who have no other
+ * platform destination). Used by AppShell to skip the *desktop* rail in that
+ * case — it would otherwise sit right beside that module's own full nav as a
+ * second, near-empty column ("two menus", only ever a problem at the lg+
+ * breakpoint where both render in the same row).
+ *
+ * Deliberately NOT used to hide the mobile hamburger/drawer: on a phone the
+ * drawer is a modal that only appears when tapped, so there's no side-by-side
+ * duplication to avoid, and hiding it there removed a real affordance without
+ * fixing anything.
+ */
+export function useSidebarNavItems() {
+  const pathname = usePathname();
+  const { role, isFeatureEnabled, isPlatformOperator } = usePermissions();
+
+  const items = getNavItems().filter((item) => {
+    if (!role || !item.roles.includes(role)) return false;
+    if (item.feature && !isFeatureEnabled(item.feature)) return false;
+    if (item.operatorOnly && !isPlatformOperator) return false;
+    return true;
+  });
+
+  const isRedundantSingleModuleLink =
+    items.length === 1 && (pathname === items[0].href || pathname.startsWith(`${items[0].href}/`));
+
+  return { items, isRedundantSingleModuleLink };
+}
+
 interface SidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
@@ -83,14 +114,8 @@ interface SidebarProps {
 
 export function Sidebar({ isCollapsed, onToggleCollapse, onNavigate }: SidebarProps) {
   const pathname = usePathname();
-  const { role, tenant, isFeatureEnabled, isPlatformOperator } = usePermissions();
-
-  const items = getNavItems().filter((item) => {
-    if (!role || !item.roles.includes(role)) return false;
-    if (item.feature && !isFeatureEnabled(item.feature)) return false;
-    if (item.operatorOnly && !isPlatformOperator) return false;
-    return true;
-  });
+  const { tenant } = usePermissions();
+  const { items } = useSidebarNavItems();
 
   return (
     <aside

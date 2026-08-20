@@ -14,9 +14,12 @@ type StaffUpdate = Partial<
   Omit<StaffRow, 'id' | 'employee_id' | 'created_at' | 'updated_at' | 'created_by'>
 >;
 
-async function isShift7Admin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
-  const { data } = await supabase.rpc('is_shift7_admin');
-  return data === true;
+/** 'admin' | 'scheduler' | 'employee' | 'no_access' | null (no active staff row). */
+async function getShift7Role(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<string | null> {
+  const { data } = await supabase.rpc('current_shift7_role');
+  return data;
 }
 
 export async function GET(
@@ -48,7 +51,10 @@ export async function PATCH(
 
   const denied = requireApproved(auth);
   if (denied) return denied;
-  if (!(await isShift7Admin(supabase))) return forbidden('רק מנהל Shift7 יכול לערוך אנשי צוות');
+  const shift7Role = await getShift7Role(supabase);
+  if (shift7Role !== 'admin' && shift7Role !== 'scheduler') {
+    return forbidden('רק מנהל או משבץ Shift7 יכולים לערוך אנשי צוות');
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -83,6 +89,25 @@ export async function PATCH(
     return badRequest('אין שדות לעדכון');
   }
 
+  // Privilege escalation guard: a scheduler may edit non-admin staff freely,
+  // but must never grant admin access or touch a row that already has it —
+  // RLS's scheduler policy blocks both at the database level too (via
+  // USING/WITH CHECK on access_level), but checking here surfaces a clear
+  // Hebrew "forbidden" instead of the update silently matching zero rows.
+  if (shift7Role === 'scheduler') {
+    if (patch.access_level === 'admin') {
+      return forbidden('משבץ אינו יכול להעניק הרשאת מנהל מערכת');
+    }
+    const { data: existing } = await supabase
+      .from('staff')
+      .select('access_level')
+      .eq('id', id)
+      .maybeSingle();
+    if (existing?.access_level === 'admin') {
+      return forbidden('משבץ אינו יכול לערוך איש צוות בעל הרשאת מנהל מערכת');
+    }
+  }
+
   const { data, error } = await supabase
     .from('staff')
     .update(patch)
@@ -109,7 +134,20 @@ export async function DELETE(
 
   const denied = requireApproved(auth);
   if (denied) return denied;
-  if (!(await isShift7Admin(supabase))) return forbidden('רק מנהל Shift7 יכול להסיר אנשי צוות');
+  const shift7Role = await getShift7Role(supabase);
+  if (shift7Role !== 'admin' && shift7Role !== 'scheduler') {
+    return forbidden('רק מנהל או משבץ Shift7 יכולים להסיר אנשי צוות');
+  }
+  if (shift7Role === 'scheduler') {
+    const { data: existing } = await supabase
+      .from('staff')
+      .select('access_level')
+      .eq('id', id)
+      .maybeSingle();
+    if (existing?.access_level === 'admin') {
+      return forbidden('משבץ אינו יכול להסיר איש צוות בעל הרשאת מנהל מערכת');
+    }
+  }
 
   const { error } = await supabase.from('staff').delete().eq('id', id);
 

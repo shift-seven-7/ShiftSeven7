@@ -24,13 +24,17 @@ export function useMyShift7EmployeeRequests() {
 }
 
 /** Every request — admin/scheduler review. Server enforces the role check. */
-export function useAllShift7EmployeeRequests() {
+export function useAllShift7EmployeeRequests(enabled = true) {
   return useQuery({
     queryKey: queryKeys.shift7EmployeeRequests.list('all'),
     queryFn: () =>
       request<{ employeeRequests: EmployeeRequestRow[] }>('/api/shift7/employee-requests?scope=all'),
     select: (data) => data.employeeRequests,
     refetchInterval: 30_000,
+    // Only admin/scheduler may call ?scope=all — callers that don't yet know
+    // the current Shift7 role (or know it's 'employee') should pass false,
+    // otherwise this fires and 403s on every mount.
+    enabled,
   });
 }
 

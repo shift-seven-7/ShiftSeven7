@@ -12,6 +12,7 @@ import { StaffFormDialog } from '@/components/features/shift7/StaffFormDialog';
 import { DeleteStaffDialog } from '@/components/features/shift7/DeleteStaffDialog';
 import { useShift7Staff } from '@/hooks/queries/useShift7Staff';
 import { useShift7Facilities } from '@/hooks/queries/useShift7Facilities';
+import { useMyShift7Staff } from '@/hooks/queries/useMyShift7Staff';
 import type { StaffRow } from '@/types/database.types';
 
 const ROLE_LABELS: Record<string, string> = { guard: 'מאבטח', dispatcher: 'מוקדן' };
@@ -48,6 +49,8 @@ export default function Shift7StaffPage() {
 
   const { data: staff = [], isPending, isFetching } = useShift7Staff(debouncedSearch);
   const { data: facilities = [] } = useShift7Facilities();
+  const { data: myStaff } = useMyShift7Staff();
+  const canGrantAdmin = myStaff?.access_level === 'admin';
 
   const facilityName = (id: string) => facilities.find((f) => f.id === id)?.name ?? '—';
 
@@ -139,24 +142,28 @@ export default function Shift7StaffPage() {
                 </span>
 
                 <div className="flex items-center gap-1 justify-self-end">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    aria-label="עריכה"
-                    onClick={() => openEdit(member)}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400"
-                    aria-label="מחיקה"
-                    onClick={() => setDeleting(member)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {(canGrantAdmin || member.access_level !== 'admin') && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        aria-label="עריכה"
+                        onClick={() => openEdit(member)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400"
+                        aria-label="מחיקה"
+                        onClick={() => setDeleting(member)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </li>
             ))}
@@ -169,6 +176,7 @@ export default function Shift7StaffPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         facilities={facilities}
+        canGrantAdmin={canGrantAdmin}
       />
       <DeleteStaffDialog staff={deleting} onOpenChange={() => setDeleting(null)} />
     </PageLayout>
