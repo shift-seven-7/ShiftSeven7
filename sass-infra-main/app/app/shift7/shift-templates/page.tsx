@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock, Hash, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Clock, Hash, Palette, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FormField } from '@/components/ui/form-field';
 import { TimeInput } from '@/components/ui/time-input';
+import { ColorPicker } from '@/components/ui/color-picker';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,8 @@ import type { Shift7Category, Shift7StaffRole, ShiftTemplateRow } from '@/types/
 /** UI-only sentinel for "every facility" — the DB column is a nullable FK, null = global. */
 const ALL_FACILITIES = '__all__';
 
+const DEFAULT_COLOR = '#3b82f6';
+
 interface FormState {
   code: string;
   name: string;
@@ -51,6 +54,7 @@ interface FormState {
   applicable_roles: Shift7StaffRole[];
   facility: string;
   post_number: string;
+  color: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -62,6 +66,7 @@ const EMPTY_FORM: FormState = {
   applicable_roles: ['guard'],
   facility: ALL_FACILITIES,
   post_number: '',
+  color: DEFAULT_COLOR,
 };
 
 /** 1-3 letters, optional trailing digit — matches the server-side check. */
@@ -104,6 +109,7 @@ export default function Shift7ShiftTemplatesPage() {
             applicable_roles: editing.applicable_roles,
             facility: editing.facility ?? ALL_FACILITIES,
             post_number: editing.post_number != null ? String(editing.post_number) : '',
+            color: editing.color ?? DEFAULT_COLOR,
           }
         : EMPTY_FORM
     );
@@ -134,6 +140,7 @@ export default function Shift7ShiftTemplatesPage() {
       applicable_roles: form.applicable_roles,
       facility: form.facility === ALL_FACILITIES ? null : form.facility,
       post_number: form.post_number !== '' ? Number(form.post_number) : null,
+      color: form.color,
     };
     try {
       if (editing) {
@@ -195,8 +202,13 @@ export default function Shift7ShiftTemplatesPage() {
               <CardContent className="p-5">
                 <div className="mb-3 flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
-                      <span className="text-sm font-bold text-primary">{t.code}</span>
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-lg"
+                      style={{ backgroundColor: `${t.color ?? DEFAULT_COLOR}1a` }}
+                    >
+                      <span className="text-sm font-bold" style={{ color: t.color ?? DEFAULT_COLOR }}>
+                        {t.code}
+                      </span>
                     </div>
                     <div>
                       <h3 className="font-semibold">{t.name}</h3>
@@ -319,6 +331,9 @@ export default function Shift7ShiftTemplatesPage() {
                 value={form.post_number}
                 onChange={(e) => setForm({ ...form, post_number: e.target.value })}
               />
+            </FormField>
+            <FormField icon={Palette} label="צבע משמרת" hint="מלווה את התבנית בכל מקום שהיא מוצגת">
+              <ColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />
             </FormField>
           </div>
           <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
