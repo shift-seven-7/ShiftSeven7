@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Pencil, Plus, Trash2, Users } from 'lucide-react';
+import { KeyRound, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TableSearchInput } from '@/components/ui/table-search-input';
 import { StaffFormDialog } from '@/components/features/shift7/StaffFormDialog';
 import { DeleteStaffDialog } from '@/components/features/shift7/DeleteStaffDialog';
+import { CreateStaffLoginDialog } from '@/components/features/shift7/CreateStaffLoginDialog';
 import { useShift7Staff } from '@/hooks/queries/useShift7Staff';
 import { useShift7Facilities } from '@/hooks/queries/useShift7Facilities';
 import { useMyShift7Staff } from '@/hooks/queries/useMyShift7Staff';
@@ -39,6 +40,7 @@ export default function Shift7StaffPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StaffRow | null>(null);
   const [deleting, setDeleting] = useState<StaffRow | null>(null);
+  const [creatingLoginFor, setCreatingLoginFor] = useState<StaffRow | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -144,6 +146,17 @@ export default function Shift7StaffPage() {
                 <div className="flex items-center gap-1 justify-self-end">
                   {(canGrantAdmin || member.access_level !== 'admin') && (
                     <>
+                      {!member.user_id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          aria-label="יצירת חשבון התחברות"
+                          onClick={() => setCreatingLoginFor(member)}
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -179,6 +192,10 @@ export default function Shift7StaffPage() {
         canGrantAdmin={canGrantAdmin}
       />
       <DeleteStaffDialog staff={deleting} onOpenChange={() => setDeleting(null)} />
+      <CreateStaffLoginDialog
+        staff={creatingLoginFor}
+        onOpenChange={() => setCreatingLoginFor(null)}
+      />
     </PageLayout>
   );
 }

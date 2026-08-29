@@ -66,6 +66,22 @@ export function useUpdateShift7Staff() {
   });
 }
 
+export function useCreateShift7StaffLogin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, email }: { id: string; email: string }) =>
+      request<{ staffMember: StaffRow }>(`/api/shift7/staff/${id}/create-login`, {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.shift7Staff.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.shift7Staff.detail(variables.id) });
+    },
+  });
+}
+
 export function useDeleteShift7Staff() {
   const queryClient = useQueryClient();
 
