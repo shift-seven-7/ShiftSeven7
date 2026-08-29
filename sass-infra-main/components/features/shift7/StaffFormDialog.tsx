@@ -12,22 +12,26 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { FormField } from '@/components/ui/form-field';
 import { Segmented } from '@/components/ui/segmented';
 import { DateInput } from '@/components/ui/date-input';
-import { useCreateShift7Staff, useUpdateShift7Staff } from '@/hooks/queries/useShift7Staff';
+import {
+  useCreateShift7Staff,
+  useSetShift7StaffFacilities,
+  useUpdateShift7Staff,
+  type StaffWithFacilities,
+} from '@/hooks/queries/useShift7Staff';
 import type {
   FacilityRow,
   Shift7AccessLevel,
   Shift7Qualification,
   Shift7StaffRole,
-  StaffRow,
 } from '@/types/database.types';
 
 interface StaffFormDialogProps {
   /** null = create mode. */
-  staff: StaffRow | null;
+  staff: StaffWithFacilities | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   facilities: FacilityRow[];
@@ -40,7 +44,8 @@ interface FormState {
   employee_id: string;
   role: Shift7StaffRole;
   qualification: Shift7Qualification;
-  primary_facility: string;
+  /** The first entry is the primary/home facility — see the facilities FormField below. */
+  facility_ids: string[];
   phone: string;
   email: string;
   status: 'active' | 'on_leave' | 'inactive';
@@ -55,7 +60,7 @@ const EMPTY_FORM: FormState = {
   employee_id: '',
   role: 'guard',
   qualification: 'none',
-  primary_facility: '',
+  facility_ids: [],
   phone: '',
   email: '',
   status: 'active',
@@ -95,9 +100,10 @@ export function StaffFormDialog({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const create = useCreateShift7Staff();
   const update = useUpdateShift7Staff();
+  const setFacilities = useSetShift7StaffFacilities();
 
   const isEditing = !!staff;
-  const isPending = create.isPending || update.isPending;
+  const isPending = create.isPending || update.isPending || setFacilities.isPending;
 
   useEffect(() => {
     if (!open) return;
@@ -109,7 +115,12 @@ export function StaffFormDialog({
             employee_id: staff.employee_id,
             role: staff.role,
             qualification: staff.qualification,
-            primary_facility: staff.primary_facility,
+            // primary_facility first, so it stays the primary entry unless the
+            // scheduler explicitly reorders by removing and re-adding.
+            facility_ids: [
+              staff.primary_facility,
+              ...staff.facility_ids.filter((id) => id !== staff.primary_facility),
+            ],
             phone: staff.phone ?? '',
             email: staff.email ?? '',
             status: staff.status,
@@ -142,14 +153,16 @@ export function StaffFormDialog({
 
   const errors = {
     full_name: touched.full_name && !form.full_name.trim(),
-    primary_facility: touched.primary_facility && !form.primary_facility,
+    facility_ids: touched.facility_ids && form.facility_ids.length === 0,
   };
-  const canSubmit = !!form.full_name.trim() && !!form.primary_facility && !isPending;
+  const canSubmit = !!form.full_name.trim() && form.facility_ids.length > 0 && !isPending;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setTouched({ full_name: true, primary_facility: true });
-    if (!form.full_name.trim() || !form.primary_facility) return;
+    setTouched({ full_name: true, facility_ids: true });
+    if (!form.full_name.trim() || form.facility_ids.length === 0) return;
+
+    const primaryFacility = form.facility_ids[0];
 
     // employee_id is immutable once set, so it's only ever part of the create
     // payload — the update payload never mentions the field at all.
@@ -157,7 +170,7 @@ export function StaffFormDialog({
       full_name: form.full_name.trim(),
       role: form.role,
       qualification: form.qualification,
-      primary_facility: form.primary_facility,
+      primary_facility: primaryFacility,
       phone: form.phone.trim() || null,
       email: form.email.trim() || null,
       status: form.status,
@@ -168,16 +181,29 @@ export function StaffFormDialog({
     };
 
     try {
+      let staffId: string;
       if (isEditing) {
-        await update.mutateAsync({ id: staff.id, ...commonFields });
+        const { staffMember } = await update.mutateAsync({ id: staff.id, ...commonFields });
+        staffId = staffMember.id;
         toast.success('פרטי העובד עודכנו');
       } else {
-        await create.mutateAsync({
+        const { staffMember } = await create.mutateAsync({
           ...commonFields,
           employee_id: form.employee_id.trim() || undefined,
         });
+        staffId = staffMember.id;
         toast.success('העובד נוצר בהצלחה');
       }
+
+      // Keeps staff_facilities in sync with primary_facility on every save —
+      // otherwise a brand-new staff member would have a home facility but no
+      // membership row at all.
+      await setFacilities.mutateAsync({
+        id: staffId,
+        facilityIds: form.facility_ids,
+        primaryFacility,
+      });
+
       onOpenChange(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'שגיאה בשמירה');
@@ -241,26 +267,22 @@ export function StaffFormDialog({
             </FormField>
 
             <FormField
+              className="md:col-span-2"
               icon={Building2}
-              label="מתקן ראשי"
+              label="מתקנים"
               required
-              error={errors.primary_facility && 'יש לבחור מתקן'}
+              error={errors.facility_ids && 'יש לבחור לפחות מתקן אחד'}
+              hint="המתקן הראשון שנבחר נקבע כמתקן הראשי של העובד"
             >
-              <Select
-                value={form.primary_facility}
-                onValueChange={(v) => setForm({ ...form, primary_facility: v })}
-              >
-                <SelectTrigger onBlur={() => setTouched((t) => ({ ...t, primary_facility: true }))}>
-                  <SelectValue placeholder="בחר..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {facilities.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiSelect
+                options={facilities.map((f) => ({ value: f.id, label: f.name }))}
+                selected={form.facility_ids}
+                onChange={(ids) => {
+                  setForm({ ...form, facility_ids: ids });
+                  setTouched((t) => ({ ...t, facility_ids: true }));
+                }}
+                placeholder="בחר מתקנים..."
+              />
             </FormField>
 
             <FormField icon={Phone} label="טלפון">

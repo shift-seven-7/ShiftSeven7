@@ -14,8 +14,10 @@ import type { FacilityRow } from '@/types/database.types';
 type FacilityInsert = Pick<FacilityRow, 'name' | 'code'> &
   Partial<Omit<FacilityRow, 'id' | 'created_at' | 'updated_at' | 'created_by'>>;
 
-async function isShift7Admin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
-  const { data } = await supabase.rpc('is_shift7_admin');
+async function isShift7SchedulerOrAdmin(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<boolean> {
+  const { data } = await supabase.rpc('is_shift7_scheduler_or_admin');
   return data === true;
 }
 
@@ -42,7 +44,9 @@ export async function POST(request: NextRequest) {
 
   const denied = requireApproved(auth);
   if (denied) return denied;
-  if (!(await isShift7Admin(supabase))) return forbidden('רק מנהל Shift7 יכול להוסיף מתקנים');
+  if (!(await isShift7SchedulerOrAdmin(supabase))) {
+    return forbidden('רק מנהל או משבץ Shift7 יכולים להוסיף מתקנים');
+  }
 
   let body: FacilityInsert;
   try {

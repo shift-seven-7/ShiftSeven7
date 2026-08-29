@@ -8,13 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TableSearchInput } from '@/components/ui/table-search-input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StaffFormDialog } from '@/components/features/shift7/StaffFormDialog';
 import { DeleteStaffDialog } from '@/components/features/shift7/DeleteStaffDialog';
 import { CreateStaffLoginDialog } from '@/components/features/shift7/CreateStaffLoginDialog';
-import { useShift7Staff } from '@/hooks/queries/useShift7Staff';
+import { useShift7Staff, type StaffWithFacilities } from '@/hooks/queries/useShift7Staff';
 import { useShift7Facilities } from '@/hooks/queries/useShift7Facilities';
 import { useMyShift7Staff } from '@/hooks/queries/useMyShift7Staff';
-import type { StaffRow } from '@/types/database.types';
 
 const ROLE_LABELS: Record<string, string> = { guard: 'מאבטח', dispatcher: 'מוקדן' };
 const STATUS_LABELS: Record<string, string> = {
@@ -38,9 +38,10 @@ export default function Shift7StaffPage() {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<StaffRow | null>(null);
-  const [deleting, setDeleting] = useState<StaffRow | null>(null);
-  const [creatingLoginFor, setCreatingLoginFor] = useState<StaffRow | null>(null);
+  const [editing, setEditing] = useState<StaffWithFacilities | null>(null);
+  const [deleting, setDeleting] = useState<StaffWithFacilities | null>(null);
+  const [creatingLoginFor, setCreatingLoginFor] = useState<StaffWithFacilities | null>(null);
+  const [facilityFilter, setFacilityFilter] = useState('');
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -49,10 +50,14 @@ export default function Shift7StaffPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const { data: staff = [], isPending, isFetching } = useShift7Staff(debouncedSearch);
+  const { data: allStaff = [], isPending, isFetching } = useShift7Staff(debouncedSearch);
   const { data: facilities = [] } = useShift7Facilities();
   const { data: myStaff } = useMyShift7Staff();
   const canGrantAdmin = myStaff?.access_level === 'admin';
+
+  const staff = facilityFilter
+    ? allStaff.filter((member) => member.facility_ids.includes(facilityFilter))
+    : allStaff;
 
   const facilityName = (id: string) => facilities.find((f) => f.id === id)?.name ?? '—';
 
@@ -60,7 +65,7 @@ export default function Shift7StaffPage() {
     setEditing(null);
     setDialogOpen(true);
   };
-  const openEdit = (member: StaffRow) => {
+  const openEdit = (member: StaffWithFacilities) => {
     setEditing(member);
     setDialogOpen(true);
   };
@@ -76,13 +81,31 @@ export default function Shift7StaffPage() {
         </Button>
       }
     >
-      <div className="mb-4">
-        <TableSearchInput
-          value={searchInput}
-          onChange={setSearchInput}
-          isLoading={isFetching}
-          placeholder="חיפוש לפי שם או מספר עובד..."
-        />
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <div className="flex-1">
+          <TableSearchInput
+            value={searchInput}
+            onChange={setSearchInput}
+            isLoading={isFetching}
+            placeholder="חיפוש לפי שם או מספר עובד..."
+          />
+        </div>
+        <Select
+          value={facilityFilter || 'all'}
+          onValueChange={(v) => setFacilityFilter(v === 'all' ? '' : v)}
+        >
+          <SelectTrigger className="sm:w-[180px]">
+            <SelectValue placeholder="כל המתקנים" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">כל המתקנים</SelectItem>
+            {facilities.map((f) => (
+              <SelectItem key={f.id} value={f.id}>
+                {f.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Card className="overflow-hidden">
@@ -126,10 +149,17 @@ export default function Shift7StaffPage() {
                   {member.employee_id}
                 </span>
 
-                <span className="text-muted-foreground">
-                  {ROLE_LABELS[member.role] ?? member.role}
-                  {member.primary_facility && (
-                    <span className="text-xs"> · {facilityName(member.primary_facility)}</span>
+                <span className="flex flex-wrap items-center gap-1 text-muted-foreground">
+                  <span>{ROLE_LABELS[member.role] ?? member.role}</span>
+                  {member.facility_ids.slice(0, 2).map((facilityId) => (
+                    <Badge key={facilityId} variant="secondary" className="text-[10px]">
+                      {facilityName(facilityId)}
+                    </Badge>
+                  ))}
+                  {member.facility_ids.length > 2 && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      +{member.facility_ids.length - 2}
+                    </Badge>
                   )}
                 </span>
 

@@ -126,6 +126,17 @@ export type StaffRow = {
   created_by: string | null;
 };
 
+/**
+ * Additional facilities a staff member can work at, beyond primary_facility
+ * (which stays their default/home facility, unchanged). Phase 1: UI-level
+ * filtering only, not a hard constraint on shift_assignments.
+ */
+export type StaffFacilityRow = {
+  staff_id: string;
+  facility_id: string;
+  created_at: string;
+};
+
 export type Shift7CredentialKey =
   | 'weapon_license_expiry'
   | 'weapon_refresh_expiry'
@@ -335,6 +346,12 @@ export type Database = {
         Insert: Pick<StaffRow, 'full_name' | 'employee_id' | 'role' | 'primary_facility'> &
           Partial<StaffRow>;
         Update: Partial<StaffRow>;
+        Relationships: [];
+      };
+      staff_facilities: {
+        Row: StaffFacilityRow;
+        Insert: Pick<StaffFacilityRow, 'staff_id' | 'facility_id'> & Partial<StaffFacilityRow>;
+        Update: Partial<StaffFacilityRow>;
         Relationships: [];
       };
       staff_credential_notification_state: {

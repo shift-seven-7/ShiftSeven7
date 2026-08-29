@@ -17,11 +17,14 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return json as T;
 }
 
+/** A roster row, with its additional facilities beyond primary_facility. */
+export type StaffWithFacilities = StaffRow & { facility_ids: string[] };
+
 export function useShift7Staff(search?: string) {
   return useQuery({
     queryKey: queryKeys.shift7Staff.list(search),
     queryFn: () =>
-      request<{ staff: StaffRow[] }>(
+      request<{ staff: StaffWithFacilities[] }>(
         `/api/shift7/staff${search ? `?search=${encodeURIComponent(search)}` : ''}`
       ),
     select: (data) => data.staff,
@@ -78,6 +81,43 @@ export function useCreateShift7StaffLogin() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.shift7Staff.lists() });
       queryClient.invalidateQueries({ queryKey: queryKeys.shift7Staff.detail(variables.id) });
+    },
+  });
+}
+
+export function useStaffFacilities(staffId: string | null) {
+  return useQuery({
+    queryKey: [...queryKeys.shift7Staff.all, 'facilities', staffId ?? ''] as const,
+    queryFn: () =>
+      request<{ facilityIds: string[] }>(`/api/shift7/staff/${staffId}/facilities`),
+    select: (data) => data.facilityIds,
+    enabled: !!staffId,
+  });
+}
+
+export function useSetShift7StaffFacilities() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      facilityIds,
+      primaryFacility,
+    }: {
+      id: string;
+      facilityIds: string[];
+      primaryFacility: string;
+    }) =>
+      request<{ facilityIds: string[]; primaryFacility: string }>(
+        `/api/shift7/staff/${id}/facilities`,
+        { method: 'PUT', body: JSON.stringify({ facilityIds, primaryFacility }) }
+      ),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.shift7Staff.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.shift7Staff.detail(variables.id) });
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.shift7Staff.all, 'facilities', variables.id] as const,
+      });
     },
   });
 }

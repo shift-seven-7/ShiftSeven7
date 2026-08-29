@@ -63,7 +63,13 @@ export default function Shift7ShiftRequestPage() {
 
   const availableTemplates: ShiftTemplateRow[] = useMemo(() => {
     if (!myStaff) return templates;
-    return templates.filter((t) => t.applicable_roles.includes(myStaff.role));
+    return templates.filter(
+      (t) =>
+        t.applicable_roles.includes(myStaff.role) &&
+        // Global templates (facility = null) are always available; a
+        // facility-specific one only shows if the employee is a member there.
+        (t.facility === null || myStaff.facility_ids.includes(t.facility))
+    );
   }, [templates, myStaff]);
 
   async function handleSelectTemplate(date: string, template: ShiftTemplateRow) {

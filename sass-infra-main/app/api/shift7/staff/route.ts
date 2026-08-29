@@ -45,7 +45,24 @@ export async function GET(request: NextRequest) {
     return serverError('טעינת רשימת הצוות נכשלה');
   }
 
-  return NextResponse.json({ staff: data });
+  // One extra query for every returned staff member's additional facilities,
+  // rather than N+1 — the roster page shows these as badges per row.
+  const staffIds = (data ?? []).map((member) => member.id);
+  const { data: memberships } = staffIds.length
+    ? await supabase.from('staff_facilities').select('staff_id, facility_id').in('staff_id', staffIds)
+    : { data: [] as { staff_id: string; facility_id: string }[] };
+
+  const facilitiesByStaffId = new Map<string, string[]>();
+  for (const { staff_id, facility_id } of memberships ?? []) {
+    facilitiesByStaffId.set(staff_id, [...(facilitiesByStaffId.get(staff_id) ?? []), facility_id]);
+  }
+
+  const staff = (data ?? []).map((member) => ({
+    ...member,
+    facility_ids: facilitiesByStaffId.get(member.id) ?? [],
+  }));
+
+  return NextResponse.json({ staff });
 }
 
 export async function POST(request: NextRequest) {
