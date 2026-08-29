@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/check-credential-expiries",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}

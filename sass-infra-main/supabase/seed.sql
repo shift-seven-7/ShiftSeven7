@@ -1,0 +1,10 @@
+-- Supabase runs this after `supabase db reset`.
+--
+-- Intentionally empty. The local demo tenants are seeded by
+-- `npm run db:seed` (scripts/seed-local-tenants.ts) instead, because the rows
+-- have to carry the running stack's API keys — which are generated per stack
+-- and cannot be hardcoded here — and because they are sealed with
+-- TENANT_SECRETS_KEY through the same encryption path production uses.
+--
+-- `npm run db:reset` chains both steps, so a reset still leaves a working
+-- environment.

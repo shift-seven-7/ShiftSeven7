@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["fra1"],
+  "crons": [
+    {
+      "path": "/api/shift7/cron/check-credential-expiries",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}
