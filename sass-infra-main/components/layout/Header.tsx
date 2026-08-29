@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LogOut, Menu, User as UserIcon } from 'lucide-react';
+import { LogOut, Menu, Settings, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -84,6 +84,13 @@ export function Header({ onOpenMobileNav }: HeaderProps) {
             <Link href="/app/profile" className="cursor-pointer gap-2">
               <UserIcon className="h-4 w-4" />
               הפרופיל שלי
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild>
+            <Link href="/app/settings" className="cursor-pointer gap-2">
+              <Settings className="h-4 w-4" />
+              הגדרות מערכת
             </Link>
           </DropdownMenuItem>
 

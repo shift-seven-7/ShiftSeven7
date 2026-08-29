@@ -40,7 +40,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   '/app/home': ALL,
   '/app/profile': ALL_INCLUDING_STAFF,
   '/app/users': ALL,
-  '/app/settings': ALL,
+  '/app/settings': ALL_INCLUDING_STAFF,
   '/app/admin/tenants': TENANT_ADMIN_ROLES,
   [PENDING_APPROVAL_ROUTE]: ALL,
   // Module gate — which STAFF-level users beyond this reach inside Shift7 is
