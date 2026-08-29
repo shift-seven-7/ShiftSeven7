@@ -10,8 +10,10 @@ interface UpsertConfig {
   category: Shift7ConfigCategory;
 }
 
-async function isShift7Admin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
-  const { data } = await supabase.rpc('is_shift7_admin');
+async function isShift7SchedulerOrAdmin(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<boolean> {
+  const { data } = await supabase.rpc('is_shift7_scheduler_or_admin');
   return data === true;
 }
 
@@ -39,7 +41,9 @@ export async function POST(request: NextRequest) {
 
   const denied = requireApproved(auth);
   if (denied) return denied;
-  if (!(await isShift7Admin(supabase))) return forbidden('רק מנהל Shift7 יכול לערוך הגדרות');
+  if (!(await isShift7SchedulerOrAdmin(supabase))) {
+    return forbidden('רק מנהל או משבץ Shift7 יכולים לערוך הגדרות');
+  }
 
   let body: UpsertConfig;
   try {

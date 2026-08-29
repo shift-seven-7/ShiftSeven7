@@ -6,8 +6,10 @@ import type { FacilityRow } from '@/types/database.types';
 type FacilityUpdate = Partial<Omit<FacilityRow, 'id' | 'created_at' | 'updated_at' | 'created_by'>>;
 const ALLOWED_FIELDS: (keyof FacilityUpdate)[] = ['name', 'code', 'address', 'status'];
 
-async function isShift7Admin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
-  const { data } = await supabase.rpc('is_shift7_admin');
+async function isShift7SchedulerOrAdmin(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<boolean> {
+  const { data } = await supabase.rpc('is_shift7_scheduler_or_admin');
   return data === true;
 }
 
@@ -21,7 +23,9 @@ export async function PATCH(
 
   const denied = requireApproved(auth);
   if (denied) return denied;
-  if (!(await isShift7Admin(supabase))) return forbidden('רק מנהל Shift7 יכול לערוך מתקנים');
+  if (!(await isShift7SchedulerOrAdmin(supabase))) {
+    return forbidden('רק מנהל או משבץ Shift7 יכולים לערוך מתקנים');
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -55,7 +59,9 @@ export async function DELETE(
 
   const denied = requireApproved(auth);
   if (denied) return denied;
-  if (!(await isShift7Admin(supabase))) return forbidden('רק מנהל Shift7 יכול להסיר מתקנים');
+  if (!(await isShift7SchedulerOrAdmin(supabase))) {
+    return forbidden('רק מנהל או משבץ Shift7 יכולים להסיר מתקנים');
+  }
 
   const { error } = await supabase.from('facilities').delete().eq('id', id);
 

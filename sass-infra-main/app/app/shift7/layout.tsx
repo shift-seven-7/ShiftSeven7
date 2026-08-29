@@ -64,9 +64,6 @@ const ADMIN_SCHEDULER_NAV: NavItem[] = [
   { href: '/app/shift7/manage-requests', label: 'ניהול בקשות', icon: ClipboardCheck },
   { href: '/app/shift7/constraints-report', label: 'דוח אילוצים', icon: FileWarning },
   { href: '/app/shift7/posts', label: 'עמדות שמירה', icon: Users },
-];
-
-const ADMIN_ONLY_NAV: NavItem[] = [
   { href: '/app/shift7/settings', label: 'הגדרות', icon: Settings },
 ];
 
@@ -78,8 +75,7 @@ const EMPLOYEE_NAV: NavItem[] = [
 ];
 
 function navFor(accessLevel: Shift7AccessLevel | undefined): NavItem[] {
-  if (accessLevel === 'admin') return [...ADMIN_SCHEDULER_NAV, ...ADMIN_ONLY_NAV];
-  if (accessLevel === 'scheduler') return ADMIN_SCHEDULER_NAV;
+  if (accessLevel === 'admin' || accessLevel === 'scheduler') return ADMIN_SCHEDULER_NAV;
   if (accessLevel === 'employee') return EMPLOYEE_NAV;
   return [];
 }

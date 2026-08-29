@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from './keys';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import type { StaffRow } from '@/types/database.types';
+import type { StaffWithFacilities } from './useShift7Staff';
 
 /**
  * The signed-in user's own Shift7 staff row, or null if they don't have one.
@@ -21,7 +21,7 @@ import type { StaffRow } from '@/types/database.types';
  * every other observer's raw cache entry too. The "find mine" step belongs in
  * `select`, which runs per-observer, not in the fetcher.
  */
-async function fetchStaff(): Promise<{ staff: StaffRow[] }> {
+async function fetchStaff(): Promise<{ staff: StaffWithFacilities[] }> {
   const response = await fetch('/api/shift7/staff');
   const json = await response.json();
   if (!response.ok) throw new Error(json.error || 'טעינת נתוני העובד נכשלה');

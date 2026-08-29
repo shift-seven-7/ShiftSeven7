@@ -33,7 +33,8 @@ The map. Start here before touching anything.
 
 ## Feature docs
 
-`features/` holds one doc per feature. The infrastructure ships with five.
+`features/` holds one doc per feature. The infrastructure ships with five;
+Shift7 is the first module built on top of it.
 
 | Feature | Doc | Description |
 |---|---|---|
@@ -42,6 +43,7 @@ The map. Start here before touching anything.
 | משתמשים והרשאות | [features/users.md](features/users.md) | the directory, invites, role assignment, deactivation |
 | הגדרות מערכת | [features/settings.md](features/settings.md) | the tenant settings tab shell and the appearance tab |
 | ניהול טננטים | [features/tenant-admin.md](features/tenant-admin.md) | the registry console, client settings, the setup wizard |
+| שיפט7 (Shift7) | [features/shift7.md](features/shift7.md) | shift-scheduling for security staff — facilities, posts, staff, shift templates, assignments, requests |
 
 A new module adds its own doc here and a row to this table.
 
@@ -92,6 +94,14 @@ and permission wiring already exist.
 | `[id]` → הגדרות לקוח | [tenant-admin](features/tenant-admin.md), [modules-and-roles](modules-and-roles.md) |
 | `[id]` → תנאי שימוש | [tenant-admin](features/tenant-admin.md) |
 | `[id]/setup`, `new-automated` | [provisioning](provisioning.md) |
+
+### `/app/shift7/*` — שיפט7
+| Page | Doc |
+|---|---|
+| `/app/shift7`, `staff`, `shift-templates`, `posts`, `staffing-requirements`, `settings` | [shift7](features/shift7.md) |
+| `smart-schedule`, `published-schedule`, `unstaffed-shifts`, `constraints-report` | [shift7](features/shift7.md) |
+| `manage-requests`, `my-area`, `shift-request`, `requests` | [shift7](features/shift7.md) |
+| the two role layers (`app_role` vs `staff.access_level`) | [shift7](features/shift7.md), [users](features/users.md) |
 
 ## Issues
 
