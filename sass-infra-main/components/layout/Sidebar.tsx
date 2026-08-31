@@ -46,14 +46,21 @@ const ALL_ROLES: UserRole[] = [USER_ROLES.ADMIN, USER_ROLES.SYSTEM_MANAGER];
 const ALL_ROLES_INCLUDING_STAFF: UserRole[] = [...ALL_ROLES, USER_ROLES.STAFF];
 
 /**
+ * The platform console proper (home dashboard, platform user management,
+ * system settings) — SYSTEM_MANAGER is scoped to its module(s) here, same as
+ * STAFF. Mirrors ADMIN_ONLY in lib/constants/permissions.ts.
+ */
+const ADMIN_ONLY_ROLES: UserRole[] = [USER_ROLES.ADMIN];
+
+/**
  * A function, not a constant, so labels can depend on runtime configuration if
  * a project ever needs that.
  */
 function getNavItems(): NavItem[] {
   return [
-    { href: '/app/home', label: 'עמוד הבית', icon: Home, roles: ALL_ROLES },
-    { href: '/app/users', label: 'משתמשים', icon: Users, roles: ALL_ROLES },
-    { href: '/app/settings', label: 'הגדרות מערכת', icon: Settings, roles: ALL_ROLES },
+    { href: '/app/home', label: 'עמוד הבית', icon: Home, roles: ADMIN_ONLY_ROLES },
+    { href: '/app/users', label: 'משתמשים', icon: Users, roles: ADMIN_ONLY_ROLES },
+    { href: '/app/settings', label: 'הגדרות מערכת', icon: Settings, roles: ADMIN_ONLY_ROLES },
     {
       href: '/app/admin/tenants',
       label: 'ניהול טננטים',

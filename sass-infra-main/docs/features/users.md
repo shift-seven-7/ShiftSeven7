@@ -85,6 +85,15 @@ the API, and disabled in the UI with an explanation.
 **Why unknown `features_override` keys are dropped.** A stale client would
 otherwise accumulate junk in the column that nothing ever cleans up.
 
+**`SYSTEM_MANAGER` can no longer reach this page.** `ROUTE_PERMISSIONS['/app/users']`
+is `ADMIN`-only (`lib/constants/permissions.ts`), scoping `SYSTEM_MANAGER` to
+its module(s) the same as `STAFF` — see the Shift7 feature doc's note on
+`ADMIN_ONLY`. The API/RLS layer is unchanged: `/api/users/*` still authorizes
+by `SUPER_ROLES` (`ADMIN`, `SYSTEM_MANAGER`), so a `SYSTEM_MANAGER` calling
+these endpoints directly still succeeds — only the UI page and nav link are
+gone. That gap is intentional per "UI guards are not security," but revisit it
+if `SYSTEM_MANAGER` is ever needed as a real platform user-manager again.
+
 ## Related
 
 - [modules-and-roles.md](../modules-and-roles.md) — adding a role

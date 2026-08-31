@@ -19,6 +19,15 @@ const ALL: UserRole[] = [USER_ROLES.ADMIN, USER_ROLES.SYSTEM_MANAGER];
 /** Platform roles plus STAFF — for routes a module's own low-privilege users also reach. */
 const ALL_INCLUDING_STAFF: UserRole[] = [...ALL, USER_ROLES.STAFF];
 
+/**
+ * The platform console proper — SYSTEM_MANAGER is scoped to its module(s)
+ * here, the same way STAFF already is. See the `roles-permissions` skill's
+ * note on this being a deliberate, revisitable choice: SYSTEM_MANAGER's
+ * generic "manage users and settings" meaning only applies while every tenant
+ * on this platform is Shift7-only.
+ */
+const ADMIN_ONLY: UserRole[] = [USER_ROLES.ADMIN];
+
 /** Where a user with no role yet is parked. */
 export const PENDING_APPROVAL_ROUTE = '/app/pending-approval';
 
@@ -37,9 +46,9 @@ export const PLATFORM_ROUTE_PREFIX = '/app/admin';
  * any signed-in user with a role.
  */
 export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
-  '/app/home': ALL,
+  '/app/home': ADMIN_ONLY,
   '/app/profile': ALL_INCLUDING_STAFF,
-  '/app/users': ALL,
+  '/app/users': ADMIN_ONLY,
   '/app/settings': ALL_INCLUDING_STAFF,
   '/app/admin/tenants': TENANT_ADMIN_ROLES,
   [PENDING_APPROVAL_ROUTE]: ALL,
@@ -55,7 +64,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
  */
 export const HOME_PAGES: Record<UserRole, string> = {
   ADMIN: '/app/home',
-  SYSTEM_MANAGER: '/app/home',
+  SYSTEM_MANAGER: '/app/shift7',
   STAFF: '/app/shift7',
 };
 

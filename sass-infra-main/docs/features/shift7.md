@@ -24,6 +24,18 @@ notes). A tenant's own `ADMIN`/`SYSTEM_MANAGER` can also hold a `staff` row
 (e.g. a קב"ט who is also the tenant's platform admin) — nothing prevents it,
 but nothing implies it either.
 
+**`SYSTEM_MANAGER` is scoped to its module(s) the same as `STAFF`.**
+`HOME_PAGES.SYSTEM_MANAGER` is `/app/shift7`, and `ROUTE_PERMISSIONS['/app/home']`
+/ `['/app/users']` are `ADMIN`-only (`lib/constants/permissions.ts`), so a Shift7
+קב"ט/scheduler invited as `SYSTEM_MANAGER` (rather than provisioned through
+Shift7's own "create login" flow as `STAFF`) gets the identical outer-platform
+experience: only the "Shift7" sidebar item, no platform Home/Users/Settings
+links. Only `ADMIN` reaches the full platform console. This is a deliberate,
+revisitable choice — see the comment beside `ADMIN_ONLY` in
+`lib/constants/permissions.ts`: it repurposes `SYSTEM_MANAGER`'s normally
+generic, multi-tenant "manage users and settings" meaning platform-wide, which
+only makes sense while every tenant here is Shift7-only.
+
 ## User Roles & Access
 
 **Reaching the module at all**: `ROUTE_PERMISSIONS['/app/shift7'] =
