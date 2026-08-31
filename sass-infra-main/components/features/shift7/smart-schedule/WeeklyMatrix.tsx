@@ -4,12 +4,8 @@ import { useState } from 'react';
 import { Droppable } from '@hello-pangea/dnd';
 import { cn } from '@/lib/utils';
 import { ShiftEditPopover } from './ShiftEditPopover';
-import type {
-  Shift7Category,
-  ShiftAssignmentRow,
-  ShiftTemplateRow,
-  StaffRow as StaffRecord,
-} from '@/types/database.types';
+import type { Shift7Category, ShiftAssignmentRow, ShiftTemplateRow } from '@/types/database.types';
+import type { StaffWithFacilities as StaffRecord } from '@/hooks/queries/useShift7Staff';
 
 const CATEGORY_CELL: Record<Shift7Category, string> = {
   morning: 'bg-amber-100 border-amber-300 text-amber-900 dark:bg-amber-950/50 dark:border-amber-800 dark:text-amber-200',
@@ -202,9 +198,16 @@ export function WeeklyMatrix({
   const todayStr = toDateStr(new Date());
   const colSpan = weekDays.length + 1;
 
+  // A staff member appears on every facility board they belong to, not just
+  // their primary one — staff_facilities (facility_ids) holds the extra
+  // memberships added on top of primary_facility.
   const facilityStaff = isGlobalView
     ? staff.filter((s) => s.status === 'active')
-    : staff.filter((s) => s.primary_facility === effectiveFacilityId && s.status === 'active');
+    : staff.filter(
+        (s) =>
+          (s.primary_facility === effectiveFacilityId || s.facility_ids.includes(effectiveFacilityId ?? '')) &&
+          s.status === 'active'
+      );
   const supervisors = facilityStaff.filter((s) => s.role === 'guard' && s.qualification === 'shift_supervisor');
   const guards = facilityStaff.filter((s) => s.role === 'guard' && s.qualification !== 'shift_supervisor');
   const leadDispatchers = facilityStaff.filter((s) => s.role === 'dispatcher' && s.qualification === 'lead_dispatcher');

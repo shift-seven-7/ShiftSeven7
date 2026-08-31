@@ -284,6 +284,22 @@ deletes their staff row. `DELETE /api/shift7/staff/[id]` catches Postgres's
 (`status`) instead. `DeleteStaffDialog.tsx` already surfaces whatever the API
 returns via `toast.error`, so no frontend change was needed.
 
+**Staff-facility membership and Smart Schedule.** `staff.primary_facility` is a
+staff member's default/home facility; `staff_facilities` (many-to-many,
+exposed as `facility_ids` on `StaffWithFacilities`) holds any *additional*
+facilities they can also work at. `WeeklyMatrix.tsx`'s per-facility board
+matches staff on `primary_facility` **or** `facility_ids`, so a staff member
+shows up on every facility board they belong to, not just their primary one.
+When `handleDragEnd` (`app/app/shift7/smart-schedule/page.tsx`) creates an
+assignment from a specific-facility board, the assignment's `facility_id` (and
+which facility's posts get searched for a match) is the board being scheduled
+on — not necessarily the member's primary facility. Global view has no single
+board to take that signal from, so it falls back to `primary_facility` there.
+`post_id` stays mandatory (`shift_assignments.post_id` is `NOT NULL`) — if a
+facility has no active post matching the staff member's role, scheduling them
+there fails with a clear message rather than a silently-empty `post_id`; the
+fix is adding a post under "עמדות שמירה" for that facility, not a code change.
+
 **Why `staff_credential_notification_state` has RLS enabled but zero
 policies.** Default-deny. Only the credential-expiry cron
 (`/api/shift7/cron/check-credential-expiries`), running with a service-role

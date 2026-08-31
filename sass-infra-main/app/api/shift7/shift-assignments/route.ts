@@ -69,12 +69,18 @@ export async function POST(request: NextRequest) {
     return badRequest('בקשה לא תקינה');
   }
 
+  // Called out separately: the realistic way this ends up missing is the
+  // caller not finding a free matching post, not a malformed request — give
+  // an actionable message instead of folding it into the generic check below.
+  if (!body.post_id) {
+    return badRequest('לא נמצאה עמדה פנויה מתאימה לתפקיד זה במתקן — יש להוסיף עמדה תחת "עמדות שמירה" או לבחור מתקן אחר.');
+  }
+
   if (
     !body.staff_id ||
     !body.staff_name ||
     !body.shift_template_id ||
     !body.shift_code ||
-    !body.post_id ||
     !body.facility_id ||
     !body.date ||
     !body.actual_start ||

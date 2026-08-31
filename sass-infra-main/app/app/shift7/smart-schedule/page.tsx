@@ -156,12 +156,25 @@ export default function Shift7SmartSchedulePage() {
       return;
     }
 
-    // Non-blocking: the shift is scheduled either way, a post is just attached when one is free.
+    // The facility this assignment belongs to is the board being scheduled on,
+    // not necessarily the member's primary facility — a staff member scheduled
+    // from a secondary-facility board (staff_facilities) is assigned to THAT
+    // facility. Global view has no single board, so primary_facility is the
+    // only signal available there.
+    const targetFacilityId = isGlobalView ? member.primary_facility : effectiveFacilityId;
+    if (!targetFacilityId) return;
+
+    // A post is required (post_id is NOT NULL on shift_assignments) — search
+    // the target facility's posts, not always the member's primary facility.
     const neededPostType = member.role === 'dispatcher' ? 'control_room' : 'static';
-    const memberFacilityPosts = posts.filter((p) => p.facility === member.primary_facility && p.status === 'active');
-    const availablePost = memberFacilityPosts.find(
+    const targetFacilityPosts = posts.filter((p) => p.facility === targetFacilityId && p.status === 'active');
+    const availablePost = targetFacilityPosts.find(
       (p) => p.type === neededPostType && p.required_role === member.role
     );
+    if (!availablePost) {
+      toast.error('לא נמצאה עמדה פנויה מתאימה לתפקיד זה במתקן זה — יש להוסיף עמדה תחת "עמדות שמירה".');
+      return;
+    }
 
     try {
       await create.mutateAsync({
@@ -169,8 +182,8 @@ export default function Shift7SmartSchedulePage() {
         staff_name: member.full_name,
         shift_template_id: templateId,
         shift_code: template.code,
-        post_id: availablePost?.id ?? '',
-        facility_id: member.primary_facility,
+        post_id: availablePost.id,
+        facility_id: targetFacilityId,
         date,
         actual_start: start.toISOString(),
         actual_end: end.toISOString(),
