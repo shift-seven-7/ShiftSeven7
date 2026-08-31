@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import {
   badRequest,
+  conflict,
   forbidden,
   getAuthInfo,
   notFound,
@@ -152,6 +153,15 @@ export async function DELETE(
   const { error } = await supabase.from('staff').delete().eq('id', id);
 
   if (error) {
+    // 23503 = foreign_key_violation. shift_assignments/shift_requests/
+    // employee_requests reference staff.id with no ON DELETE clause, so a
+    // staff member with any history can't be hard-deleted. Give an
+    // actionable message instead of the generic failure.
+    if (error.code === '23503') {
+      return conflict(
+        'לא ניתן להסיר איש צוות עם היסטוריית משמרות, בקשות משמרת או בקשות קיימות. יש להשבית אותו במקום (סטטוס לא פעיל).'
+      );
+    }
     console.error('[api/shift7/staff/:id] delete failed:', error.message);
     return serverError('הסרת איש הצוות נכשלה');
   }

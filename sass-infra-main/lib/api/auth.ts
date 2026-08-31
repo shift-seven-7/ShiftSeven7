@@ -91,6 +91,11 @@ export function notFound(message = 'לא נמצא') {
   return NextResponse.json({ error: message }, { status: 404 });
 }
 
+/** The request is valid, but conflicts with the current state (e.g. a foreign-key-referenced row). */
+export function conflict(message: string) {
+  return NextResponse.json({ error: message }, { status: 409 });
+}
+
 export function serverError(message = 'שגיאת שרת') {
   return NextResponse.json({ error: message }, { status: 500 });
 }

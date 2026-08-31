@@ -273,6 +273,17 @@ CHECK`) — so privilege escalation fails even if a caller bypasses the route
 entirely with a raw Supabase call. The same guard is applied to
 `create-login` for consistency, even though it's a newer route.
 
+**Why deleting a staff member with shift history returns 409, not a hard
+delete.** `shift_assignments.staff_id` / `shift_requests.staff_id` /
+`employee_requests.staff_id` reference `staff.id` with no `ON DELETE` clause
+(defaults to `NO ACTION`) — a deliberate choice, not an oversight: cascading
+would silently erase a guard's shift/request history the moment someone
+deletes their staff row. `DELETE /api/shift7/staff/[id]` catches Postgres's
+`23503` (foreign_key_violation) and returns a specific Hebrew message via the
+`conflict()` helper (`lib/api/auth.ts`) telling the caller to deactivate
+(`status`) instead. `DeleteStaffDialog.tsx` already surfaces whatever the API
+returns via `toast.error`, so no frontend change was needed.
+
 **Why `staff_credential_notification_state` has RLS enabled but zero
 policies.** Default-deny. Only the credential-expiry cron
 (`/api/shift7/cron/check-credential-expiries`), running with a service-role
